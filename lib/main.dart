@@ -89,7 +89,7 @@ class _CalculadoraMovelState extends State<CalculadoraMovel> {
     // --- LÓGICA DA TAMPA ---
     if (temTampa) {
       addP("Trava tampa", largura - 30, 120, 1, ["0.4", "0.4", "0.4", "0"],
-          t: TipoMDF.branco);
+          t: TipoMDF.colorido);
       addP("Tampa Lateral", largura + 7, 120, 2, ["0.4", "0.4", "0.4", "0.4"],
           t: TipoMDF.colorido);
       addP("Tampa Superior A", comprimento + 35 + adjC, 120, 1,
@@ -107,7 +107,7 @@ class _CalculadoraMovelState extends State<CalculadoraMovel> {
     int qtdRef = comprimento >= 1000 ? (comprimento - 500) ~/ 500 : 0;
     addP("Rodapé Interno", comprimento - 26 + adjR, 100, 1,
         ["0.4", "0", "0", "0"],
-        t: TipoMDF.branco);
+        t: TipoMDF.colorido);
     addP("Rodapé Lateral", largura - 25 + adjR, 100, 2, ["0.4", "0", "0", "0"]);
     addP("Rodapé Externo", comprimento + 5, 100, 2, ["0.4", "0", "0", "0"],
         t: TipoMDF.colorido);
@@ -127,7 +127,7 @@ class _CalculadoraMovelState extends State<CalculadoraMovel> {
       }
       if (cP > 0)
         addP("Prateleira", cP + adjR, lP, 1, ["0.4", "0", "0", "0"],
-            t: TipoMDF.branco);
+            t: TipoMDF.colorido);
     }
 
     // --- ESTRUTURA ---
@@ -138,7 +138,7 @@ class _CalculadoraMovelState extends State<CalculadoraMovel> {
         t: TipoMDF.colorido);
     addP("Base Superior", comprimento + 5, largura + 2, 1,
         ["0.4", "0", "0", "0"],
-        t: TipoMDF.branco);
+        t: TipoMDF.colorido);
     addP("Base Inferior", comprimento + 5, largura + 20 + adjL, 1,
         ["0.4", "0.4", "0", "0"],
         t: TipoMDF.colorido);
