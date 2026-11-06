@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'dart:convert';
-import 'dart:typed_data';
+import 'package:flutter/services.dart';
 import 'dart:js_interop';
 import 'package:web/web.dart' as web_dom;
 
 import 'aquario_logic.dart';
+import 'cortecloud_export.dart';
 
 void main() => runApp(const AppAquario());
 
@@ -173,27 +173,48 @@ class _CalculadoraMovelState extends State<CalculadoraMovel> {
     return pecas;
   }
 
-  void _exportarCSV() {
-    String csv =
-        "Móvel;Peça;MDF;Comprimento;Largura;Quantidade;FC1;FC2;FL1;FL2\n";
-    for (var m in orcamentoTotal) {
-      for (var p in m.pecas) {
-        String mdf = p.tipo == TipoMDF.fundo3mm
-            ? "MDF 3mm Branco"
-            : (p.tipo == TipoMDF.branco
-                ? "MDF $espessuraMDF mm Branco"
-                : "MDF $espessuraMDF mm Colorido");
-        csv +=
-            "${m.nome};${p.nome};$mdf;${p.comp.toStringAsFixed(1)};${p.larg.toStringAsFixed(1)};${p.qtd};${p.bordas[0]};${p.bordas[1]};${p.bordas[2]};${p.bordas[3]}\n";
-      }
-    }
-    final bytes = utf8.encode(csv);
-    final blob = web_dom.Blob([Uint8List.fromList(bytes).toJS].toJS);
+  bool _temPecasParaExportar() {
+    if (orcamentoTotal.any((movel) => movel.pecas.isNotEmpty)) return true;
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Adicione um móvel ao orçamento antes de exportar.')));
+    return false;
+  }
+
+  void _exportarExcel() {
+    if (!_temPecasParaExportar()) return;
+    final bytes = planilhaCortecloud(orcamentoTotal);
+    final blob = web_dom.Blob(
+        [bytes.toJS].toJS,
+        web_dom.BlobPropertyBag(
+            type:
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'));
     final url = web_dom.URL.createObjectURL(blob);
-    web_dom.document.createElement('a') as web_dom.HTMLAnchorElement
-      ..href = url
-      ..download = "CorteCloud_Alex.csv"
-      ..click();
+    final link =
+        web_dom.document.createElement('a') as web_dom.HTMLAnchorElement
+          ..href = url
+          ..download = 'CorteCloud_Alex.xlsx';
+    web_dom.document.body?.appendChild(link);
+    link.click();
+    link.remove();
+    Future<void>.delayed(
+        const Duration(seconds: 30), () => web_dom.URL.revokeObjectURL(url));
+  }
+
+  Future<void> _copiarParaCortecloud() async {
+    if (!_temPecasParaExportar()) return;
+    try {
+      await Clipboard.setData(
+          ClipboardData(text: textoCortecloud(orcamentoTotal)));
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Peças copiadas. No Cortecloud, use Importar peças > '
+              'Colar dados da planilha ou Excel e vincule as chapas e fitas.')));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Não foi possível copiar. Baixe a planilha Excel e '
+              'copie as linhas de peças, sem o cabeçalho.')));
+    }
   }
 
   @override
@@ -203,7 +224,13 @@ class _CalculadoraMovelState extends State<CalculadoraMovel> {
         title: const Text("Configurador Alex Pro"),
         actions: [
           IconButton(
-              icon: const Icon(Icons.cloud_download), onPressed: _exportarCSV)
+              tooltip: 'Copiar para o Cortecloud',
+              icon: const Icon(Icons.content_copy),
+              onPressed: _copiarParaCortecloud),
+          IconButton(
+              tooltip: 'Baixar planilha Excel (.xlsx)',
+              icon: const Icon(Icons.cloud_download),
+              onPressed: _exportarExcel)
         ],
       ),
       body: Row(
@@ -355,7 +382,8 @@ class _CalculadoraMovelState extends State<CalculadoraMovel> {
             "Aquário ${comprimento.toInt()}x${largura.toInt()}",
             List.from(pecasEdicao),
             qtdPortas,
-            temTampa))),
+            temTampa,
+            espessuraMDF: espessuraMDF))),
         child: const Text("ADICIONAR MÓVEL AO ORÇAMENTO"),
       ),
     );

@@ -33,7 +33,9 @@ class Movel {
   final List<Peca> pecas;
   final int portas;
   final bool temTampa;
-  Movel(this.nome, this.pecas, this.portas, this.temTampa);
+  final int espessuraMDF;
+  Movel(this.nome, this.pecas, this.portas, this.temTampa,
+      {this.espessuraMDF = 15});
 
   int get dobradicaReta => (portas == 3) ? 4 : (portas * 2);
   int get dobradicaCurva => (portas == 3) ? 2 : 0;
