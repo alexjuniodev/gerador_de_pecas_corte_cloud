@@ -28,12 +28,10 @@ List<List<Object>> linhasCortecloud(List<Movel> moveis) {
           peca.larg,
           peca.nome,
           for (final borda in peca.bordas)
-            borda == '0' || borda.isEmpty
-                ? ''
-                : '${peca.tipo == TipoMDF.colorido ? 'Colorido' : 'Branco'} $borda',
+            borda == '0' || borda.isEmpty ? '' : 'Branco $borda',
           peca.tipo == TipoMDF.fundo3mm
               ? 'MDF 3mm Branco'
-              : 'MDF ${movel.espessuraMDF} mm ${peca.tipo == TipoMDF.branco ? 'Branco' : 'Colorido'}',
+              : 'MDF ${movel.espessuraMDF} mm Branco',
           movel.nome,
           '', // Sem autorização para ignorar o veio do material.
         ],

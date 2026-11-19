@@ -49,16 +49,15 @@ void main() {
   test('preserva a espessura de cada móvel e o fundo de 3 mm', () {
     final linhas = linhasCortecloud([
       Movel('Móvel 15', [peca()], 3, true, espessuraMDF: 15),
-      Movel('Móvel 18', [peca(tipo: TipoMDF.colorido)], 3, true,
-          espessuraMDF: 18),
+      Movel('Móvel 18', [peca()], 3, true, espessuraMDF: 18),
       Movel('Fundo', [peca(tipo: TipoMDF.fundo3mm)], 3, true, espessuraMDF: 18),
     ]);
     expect(linhas.map((linha) => linha[8]), [
       'MDF 15 mm Branco',
-      'MDF 18 mm Colorido',
+      'MDF 18 mm Branco',
       'MDF 3mm Branco',
     ]);
-    expect(linhas[1][4], 'Colorido 0.4');
+    expect(linhas[1][4], 'Branco 0.4');
   });
 
   test('texto para colar contém só peças, tabulações e 11 campos por linha',

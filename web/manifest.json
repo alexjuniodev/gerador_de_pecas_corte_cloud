@@ -1,12 +1,12 @@
 {
-    "name": "gerador_de_pecas_corte_cloud",
-    "short_name": "gerador_de_pecas_corte_cloud",
+    "name": "Configurador Alex Pro",
+    "short_name": "Alex Pro",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
-    "orientation": "portrait-primary",
+    "description": "Orçamento de móvel em MDF branco e exportação para o Cortecloud.",
+    "orientation": "any",
     "prefer_related_applications": false,
     "icons": [
         {

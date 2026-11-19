@@ -1,26 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'dart:js_interop';
-import 'package:web/web.dart' as web_dom;
 
 import 'aquario_logic.dart';
 import 'cortecloud_export.dart';
+import 'download.dart';
 
 void main() => runApp(const AppAquario());
 
 class AppAquario extends StatelessWidget {
   const AppAquario({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Configurador Alex Pro',
       theme: ThemeData(
-        primarySwatch: Colors.blue,
+        colorSchemeSeed: Colors.blue,
         useMaterial3: true,
         inputDecorationTheme: const InputDecorationTheme(
-          isDense: true,
-          contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          border: OutlineInputBorder(),
+          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 16),
         ),
       ),
       home: const CalculadoraMovel(),
@@ -30,482 +30,428 @@ class AppAquario extends StatelessWidget {
 
 class CalculadoraMovel extends StatefulWidget {
   const CalculadoraMovel({super.key});
+
   @override
   State<CalculadoraMovel> createState() => _CalculadoraMovelState();
 }
 
 class _CalculadoraMovelState extends State<CalculadoraMovel> {
-  // --- CONFIGURAÇÕES DE PREÇO (EDITÁVEIS) ---
-  double precoRoloFita = 40.0;
-  double precoChapaBranca = 350.0;
-  double precoChapaColorida = 550.0;
+  final _formKey = GlobalKey<FormState>();
+  double precoRoloFita = 40;
+  double precoChapaBranca = 350;
   double precoCorte = 2.50;
   double precoAplicacaoFita = 2.50;
   double fatorCorte = 1.9;
+  static const precoDobComum = 3.00;
+  static const precoDobCantoCego = 12.50;
 
-  // Preços fixos
-  double precoDobComum = 3.00;
-  double precoDobCantoCego = 12.50;
-
-  // --- ESTADO DO MÓVEL ATUAL ---
   double comprimento = 1000;
   double largura = 400;
+  double altura = 890;
   int qtdPortas = 3;
   int espessuraMDF = 15;
   bool temTampa = true;
   bool temPrateleira = true;
-  bool portinhaMenor = true; // AQUI ESTÁ ELA!
-  bool internoBrancoPadrao = true;
+  bool portinhaMenor = true;
 
-  List<Peca> pecasEdicao = [];
-  List<Movel> orcamentoTotal = [];
+  List<Peca> get pecas => gerarPecas(
+        comprimento: comprimento,
+        largura: largura,
+        altura: altura,
+        qtdPortas: qtdPortas,
+        espessuraMDF: espessuraMDF,
+        temTampa: temTampa,
+        temPrateleira: temPrateleira,
+        portinhaMenor: portinhaMenor,
+      );
 
-  @override
-  void initState() {
-    super.initState();
-    _atualizarPecas();
-  }
+  Movel get movelAtual => Movel(
+        'Aquário ${_medida(comprimento)}x${_medida(largura)}x${_medida(altura)} mm',
+        pecas,
+        qtdPortas,
+        temTampa,
+        espessuraMDF: espessuraMDF,
+      );
 
-  void _atualizarPecas() {
-    setState(() {
-      pecasEdicao = _gerarPecasLogica();
-    });
-  }
+  String _medida(double valor) => valor == valor.roundToDouble()
+      ? valor.toInt().toString()
+      : valor.toString();
 
-  List<Peca> _gerarPecasLogica() {
-    List<Peca> pecas = [];
-    double adjC = espessuraMDF == 18 ? 6.0 : 0.0;
-    double adjR = espessuraMDF == 18 ? -6.0 : 0.0;
-    double adjL = espessuraMDF == 18 ? 3.0 : 0.0;
-    TipoMDF tipoInt = internoBrancoPadrao ? TipoMDF.branco : TipoMDF.colorido;
+  double? _numero(String texto) => double.tryParse(texto.replaceAll(',', '.'));
 
-    void addP(String n, double c, double l, int q, List<String> b,
-        {TipoMDF? t}) {
-      if (q <= 0) return;
-      pecas.add(Peca(
-          nome: n, comp: c, larg: l, qtd: q, bordas: b, tipo: t ?? tipoInt));
-    }
-
-    // --- LÓGICA DA TAMPA ---
-    if (temTampa) {
-      addP("Trava tampa", largura - 30, 120, 1, ["0.4", "0.4", "0.4", "0"],
-          t: TipoMDF.branco);
-      addP("Tampa Lateral", largura + 7, 120, 2, ["0.4", "0.4", "0.4", "0.4"],
-          t: TipoMDF.colorido);
-      addP("Tampa Superior A", comprimento + 35 + adjC, 120, 1,
-          ["0.4", "0.4", "0.4", "0.4"],
-          t: TipoMDF.colorido);
-      addP("Tampa Superior B", comprimento + 35 + adjC, 135, 1,
-          ["0.4", "0.4", "0.4", "0.4"],
-          t: TipoMDF.colorido);
-      addP("Tampa Superior C", comprimento + 35 + adjC,
-          (largura - 115).clamp(0, 600), 1, ["0.4", "0.4", "0.4", "0.4"],
-          t: TipoMDF.colorido);
-    }
-
-    // --- LÓGICA DO RODAPÉ ---
-    int qtdRef = comprimento >= 1000 ? (comprimento - 500) ~/ 500 : 0;
-    addP("Rodapé Interno", comprimento - 26 + adjR, 100, 1,
-        ["0.4", "0", "0", "0"],
-        t: TipoMDF.branco);
-    addP("Rodapé Lateral", largura - 25 + adjR, 100, 2, ["0.4", "0", "0", "0"]);
-    addP("Rodapé Externo", comprimento + 5, 100, 2, ["0.4", "0", "0", "0"],
-        t: TipoMDF.colorido);
-    addP("Rodapé Reforço Sump", largura - 40, 100, qtdRef,
-        ["0.4", "0", "0", "0"]);
-
-    // --- LÓGICA DA PRATELEIRA ---
-    if (temPrateleira) {
-      double cP = 0, lP = 0;
-      bool usarPortinha = portinhaMenor && qtdPortas == 3;
-      if (usarPortinha) {
-        cP = 230;
-        lP = 330;
-      } else {
-        cP = (qtdPortas <= 2) ? (comprimento - 25) : ((comprimento - 55) / 3);
-        lP = largura - 70;
-      }
-      if (cP > 0)
-        addP("Prateleira", cP + adjR, lP, 1, ["0.4", "0", "0", "0"],
-            t: TipoMDF.branco);
-    }
-
-    // --- ESTRUTURA ---
-    addP("Coluna Interna", 735, largura + 2, (qtdPortas >= 3 ? 3 : 2),
-        ["0.4", "0", "0", "0"]);
-    addP("Lateral Externa", 890, largura + 20 + adjL, 2,
-        ["0.4", "0.4", "0.4", "0.4"],
-        t: TipoMDF.colorido);
-    addP("Base Superior", comprimento + 5, largura + 2, 1,
-        ["0.4", "0", "0", "0"],
-        t: TipoMDF.branco);
-    addP("Base Inferior", comprimento + 5, largura + 20 + adjL, 1,
-        ["0.4", "0.4", "0", "0"],
-        t: TipoMDF.colorido);
-    addP("Trava Estrutural", comprimento - 25 - adjC, 140, 1,
-        ["0.4", "0", "0", "0"],
-        t: TipoMDF.colorido);
-    addP("Testeira", 120, comprimento + 6, 1, ["0", "0", "0.4", "0.4"],
-        t: TipoMDF.colorido);
-    addP("Fundo (3mm)", comprimento + 25, 850, 1, ["0", "0", "0", "0"],
-        t: TipoMDF.fundo3mm);
-
-    // --- PORTAS ---
-    bool usarP = portinhaMenor && qtdPortas == 3;
-    if (usarP) {
-      addP("Porta Cava (Menor)", 620, 248, 1, ["0.4", "0.4", "0.4", "0.4"],
-          t: TipoMDF.colorido);
-      double lp =
-          (comprimento + 5 - 248 - (qtdPortas + 1) * 4) / (qtdPortas - 1);
-      addP("Porta Cava (Principal)", 620, lp.ceilToDouble(), qtdPortas - 1,
-          ["0.4", "0.4", "0.4", "0.4"],
-          t: TipoMDF.colorido);
-    } else {
-      double lp = (qtdPortas == 1)
-          ? comprimento - 1
-          : (qtdPortas == 2)
-              ? (comprimento - 4) / 2
-              : (comprimento + 5 - (qtdPortas + 1) * 4) / qtdPortas;
-      addP("Porta Cava", 620, lp.ceilToDouble(), qtdPortas,
-          ["0.4", "0.4", "0.4", "0.4"],
-          t: TipoMDF.colorido);
-    }
-    return pecas;
-  }
-
-  bool _temPecasParaExportar() {
-    if (orcamentoTotal.any((movel) => movel.pecas.isNotEmpty)) return true;
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Adicione um móvel ao orçamento antes de exportar.')));
-    return false;
-  }
+  bool _validarExportacao() => _formKey.currentState!.validate();
 
   void _exportarExcel() {
-    if (!_temPecasParaExportar()) return;
-    final bytes = planilhaCortecloud(orcamentoTotal);
-    final blob = web_dom.Blob(
-        [bytes.toJS].toJS,
-        web_dom.BlobPropertyBag(
-            type:
-                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'));
-    final url = web_dom.URL.createObjectURL(blob);
-    final link =
-        web_dom.document.createElement('a') as web_dom.HTMLAnchorElement
-          ..href = url
-          ..download = 'CorteCloud_Alex.xlsx';
-    web_dom.document.body?.appendChild(link);
-    link.click();
-    link.remove();
-    Future<void>.delayed(
-        const Duration(seconds: 30), () => web_dom.URL.revokeObjectURL(url));
+    if (!_validarExportacao()) return;
+    try {
+      baixarExcel(planilhaCortecloud([movelAtual]));
+    } catch (_) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content:
+            Text('Não foi possível baixar a planilha. Tente copiar as peças.'),
+      ));
+    }
   }
 
   Future<void> _copiarParaCortecloud() async {
-    if (!_temPecasParaExportar()) return;
+    if (!_validarExportacao()) return;
     try {
       await Clipboard.setData(
-          ClipboardData(text: textoCortecloud(orcamentoTotal)));
+        ClipboardData(text: textoCortecloud([movelAtual])),
+      );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Peças copiadas. No Cortecloud, use Importar peças > '
-              'Colar dados da planilha ou Excel e vincule as chapas e fitas.')));
+        content: Text('Peças copiadas. No Cortecloud, use Importar peças > '
+            'Colar dados da planilha ou Excel e vincule as chapas e fitas.'),
+      ));
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Não foi possível copiar. Baixe a planilha Excel e '
-              'copie as linhas de peças, sem o cabeçalho.')));
+        content: Text('Não foi possível copiar. Baixe a planilha Excel e '
+            'copie as linhas de peças, sem o cabeçalho.'),
+      ));
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Configurador Alex Pro"),
-        actions: [
-          IconButton(
-              tooltip: 'Copiar para o Cortecloud',
-              icon: const Icon(Icons.content_copy),
-              onPressed: _copiarParaCortecloud),
-          IconButton(
-              tooltip: 'Baixar planilha Excel (.xlsx)',
-              icon: const Icon(Icons.cloud_download),
-              onPressed: _exportarExcel)
-        ],
-      ),
-      body: Row(
-        children: [
-          Expanded(
-            flex: 2,
-            child: Column(
+      appBar: AppBar(title: const Text('Configurador Alex Pro')),
+      body: SafeArea(
+        child: Form(
+          key: _formKey,
+          child: LayoutBuilder(builder: (context, constraints) {
+            final configuracao = Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 _buildConfigPanel(),
-                const Divider(),
+                const SizedBox(height: 16),
+                _buildPecas(),
+              ],
+            );
+            if (constraints.maxWidth < 1000) {
+              return SingleChildScrollView(
+                key: const ValueKey('layout-mobile'),
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    configuracao,
+                    const SizedBox(height: 16),
+                    _buildFinancialSummary(),
+                  ],
+                ),
+              );
+            }
+            return Row(
+              key: const ValueKey('layout-desktop'),
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 Expanded(
-                  child: ListView.builder(
-                    itemCount: pecasEdicao.length,
-                    itemBuilder: (context, i) {
-                      final p = pecasEdicao[i];
-                      return ListTile(
-                        dense: true,
-                        title: Text(p.nome,
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 12)),
-                        subtitle: Text(
-                            "${p.comp.toStringAsFixed(1)}x${p.larg.toStringAsFixed(1)} | ${p.qtd} un"),
-                        trailing: p.tipo == TipoMDF.fundo3mm
-                            ? const Text("3mm")
-                            : DropdownButton<TipoMDF>(
-                                value: p.tipo,
-                                items: const [
-                                  DropdownMenuItem(
-                                      value: TipoMDF.branco,
-                                      child: Text("Branco")),
-                                  DropdownMenuItem(
-                                      value: TipoMDF.colorido,
-                                      child: Text("Color"))
-                                ],
-                                onChanged: (n) => setState(() => p.tipo = n!),
-                              ),
-                      );
-                    },
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(24),
+                    child: configuracao,
                   ),
                 ),
-                _buildAddButton(),
+                SizedBox(
+                  width: 380,
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(0, 24, 24, 24),
+                    child: _buildFinancialSummary(),
+                  ),
+                ),
               ],
-            ),
-          ),
-          Container(
-            width: 380,
-            color: Colors.blueGrey[50],
-            child: SingleChildScrollView(child: _buildFinancialSummary()),
-          ),
-        ],
+            );
+          }),
+        ),
       ),
     );
   }
 
   Widget _buildConfigPanel() {
     return Card(
-      margin: const EdgeInsets.all(8),
+      margin: EdgeInsets.zero,
       child: Padding(
-        padding: const EdgeInsets.all(8.0),
+        padding: const EdgeInsets.all(16),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(children: [
-              Expanded(
-                  child: TextField(
-                      decoration: const InputDecoration(labelText: "Comp (mm)"),
-                      keyboardType: TextInputType.number,
-                      onChanged: (v) {
-                        comprimento = double.tryParse(v) ?? 1000;
-                        _atualizarPecas();
-                      })),
-              const SizedBox(width: 8),
-              Expanded(
-                  child: TextField(
-                      decoration: const InputDecoration(labelText: "Larg (mm)"),
-                      keyboardType: TextInputType.number,
-                      onChanged: (v) {
-                        largura = double.tryParse(v) ?? 400;
-                        _atualizarPecas();
-                      })),
-            ]),
-            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              DropdownButton<int>(
-                  value: qtdPortas,
-                  items: [1, 2, 3]
-                      .map((e) =>
-                          DropdownMenuItem(value: e, child: Text("$e Portas")))
-                      .toList(),
-                  onChanged: (v) {
-                    setState(() {
-                      qtdPortas = v!;
-                      _atualizarPecas();
-                    });
-                  }),
-              DropdownButton<int>(
-                  value: espessuraMDF,
-                  items: [15, 18]
-                      .map((e) =>
-                          DropdownMenuItem(value: e, child: Text("${e}mm")))
-                      .toList(),
-                  onChanged: (v) {
-                    setState(() {
-                      espessuraMDF = v!;
-                      _atualizarPecas();
-                    });
-                  }),
-              const Text("Tampa:"),
-              Switch(
-                  value: temTampa,
-                  onChanged: (v) {
-                    setState(() {
-                      temTampa = v;
-                      _atualizarPecas();
-                    });
-                  }),
-              const Text("Prat:"),
-              Switch(
-                  value: temPrateleira,
-                  onChanged: (v) {
-                    setState(() {
-                      temPrateleira = v;
-                      _atualizarPecas();
-                    });
-                  }),
-            ]),
+            Text('Medidas do móvel',
+                style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 8),
+            const Text(
+                'Informe as medidas em milímetros. O orçamento é atualizado automaticamente.'),
+            const SizedBox(height: 20),
+            LayoutBuilder(builder: (context, constraints) {
+              final campos = [
+                _campoMedida('Comprimento (mm)', comprimento, 300,
+                    (v) => comprimento = v),
+                _campoMedida('Largura (mm)', largura, 150, (v) => largura = v),
+                _campoMedida('Altura (mm)', altura, 271, (v) => altura = v),
+              ];
+              if (constraints.maxWidth < 560) {
+                return Column(
+                  children: [
+                    for (final campo in campos)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: campo,
+                      ),
+                  ],
+                );
+              }
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (var i = 0; i < campos.length; i++) ...[
+                    if (i > 0) const SizedBox(width: 12),
+                    Expanded(child: campos[i]),
+                  ],
+                ],
+              );
+            }),
+            const SizedBox(height: 16),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<int>(
+                    value: qtdPortas,
+                    decoration: const InputDecoration(labelText: 'Portas'),
+                    isExpanded: true,
+                    items: [1, 2, 3]
+                        .map((e) =>
+                            DropdownMenuItem(value: e, child: Text('$e')))
+                        .toList(),
+                    onChanged: (v) => setState(() => qtdPortas = v!),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: DropdownButtonFormField<int>(
+                    value: espessuraMDF,
+                    decoration: const InputDecoration(labelText: 'MDF'),
+                    isExpanded: true,
+                    items: [15, 18]
+                        .map((e) =>
+                            DropdownMenuItem(value: e, child: Text('$e mm')))
+                        .toList(),
+                    onChanged: (v) => setState(() => espessuraMDF = v!),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Tampa'),
+              value: temTampa,
+              onChanged: (v) => setState(() => temTampa = v),
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Prateleira'),
+              value: temPrateleira,
+              onChanged: (v) => setState(() => temPrateleira = v),
+            ),
             CheckboxListTile(
-                title: const Text("Portinha Menor (248mm)?"),
-                value: portinhaMenor && qtdPortas == 3,
-                onChanged: qtdPortas == 3
-                    ? (v) {
-                        setState(() {
-                          portinhaMenor = v!;
-                          _atualizarPecas();
-                        });
-                      }
-                    : null),
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Portinha menor (248 mm)'),
+              value: portinhaMenor && qtdPortas == 3,
+              onChanged: qtdPortas == 3
+                  ? (v) => setState(() => portinhaMenor = v!)
+                  : null,
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildAddButton() {
-    return Padding(
-      padding: const EdgeInsets.all(8.0),
-      child: ElevatedButton(
-        style: ElevatedButton.styleFrom(
-            minimumSize: const Size(double.infinity, 45)),
-        onPressed: () => setState(() => orcamentoTotal.add(Movel(
-            "Aquário ${comprimento.toInt()}x${largura.toInt()}",
-            List.from(pecasEdicao),
-            qtdPortas,
-            temTampa,
-            espessuraMDF: espessuraMDF))),
-        child: const Text("ADICIONAR MÓVEL AO ORÇAMENTO"),
+  Widget _campoMedida(String label, double valor, double minimo,
+      ValueChanged<double> atualizar) {
+    return TextFormField(
+      key: ValueKey(label),
+      initialValue: _medida(valor),
+      decoration: InputDecoration(labelText: label),
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      autovalidateMode: AutovalidateMode.onUserInteraction,
+      validator: (v) {
+        final numero = _numero(v ?? '');
+        if (numero == null || !numero.isFinite || numero < minimo) {
+          return 'Mínimo: ${_medida(minimo)} mm';
+        }
+        return null;
+      },
+      onChanged: (v) {
+        final numero = _numero(v);
+        if (numero != null && numero.isFinite && numero >= minimo) {
+          setState(() => atualizar(numero));
+        }
+      },
+    );
+  }
+
+  Widget _buildPecas() {
+    final lista = pecas;
+    final quantidade = lista.fold<int>(0, (total, p) => total + p.qtd);
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('Peças do móvel',
+                style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 4),
+            Text('$quantidade peças • MDF branco'),
+            const SizedBox(height: 12),
+            for (final p in lista)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(p.nome,
+                        style: const TextStyle(fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 4),
+                    Text(
+                        '${_medida(p.comp)} × ${_medida(p.larg)} mm • ${p.qtd} un • '
+                        '${p.tipo == TipoMDF.fundo3mm ? 3 : espessuraMDF} mm'),
+                  ],
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildFinancialSummary() {
-    double aB = 0, aC = 0, fitaM = 0;
-    int pTotal = 0, dR = 0, dCu = 0, dCe = 0;
-
-    for (var m in orcamentoTotal) {
-      dR += m.dobradicaReta;
-      dCu += m.dobradicaCurva;
-      dCe += m.dobradicaCantoCego;
-      for (var p in m.pecas) {
-        pTotal += p.qtd;
-        fitaM += p.metrosFita;
-        if (p.tipo == TipoMDF.branco) aB += p.areaM2;
-        if (p.tipo == TipoMDF.colorido) aC += p.areaM2;
-      }
+    final movel = movelAtual;
+    double area = 0, fitaM = 0;
+    int pTotal = 0;
+    for (final p in movel.pecas) {
+      pTotal += p.qtd;
+      fitaM += p.metrosFita;
+      if (p.tipo == TipoMDF.branco) area += p.areaM2;
     }
-
-    int chB = (aB / 4.5).ceil();
-    int chC = (aC / 4.5).ceil();
-    int rolos = (fitaM / 20).ceil();
-    int cortes = (pTotal * fatorCorte).ceil();
-
-    double ferragens = (dR + dCu) * precoDobComum + (dCe * precoDobCantoCego);
-    double custoAplicacao = fitaM * precoAplicacaoFita;
-    double custoRolos = rolos * precoRoloFita;
-    double total = (chB * precoChapaBranca) +
-        (chC * precoChapaColorida) +
+    final chapas = (area / 4.5).ceil();
+    final rolos = (fitaM / 20).ceil();
+    final cortes = (pTotal * fatorCorte).ceil();
+    final ferragens =
+        (movel.dobradicaReta + movel.dobradicaCurva) * precoDobComum +
+            movel.dobradicaCantoCego * precoDobCantoCego;
+    final custoAplicacao = fitaM * precoAplicacaoFita;
+    final custoRolos = rolos * precoRoloFita;
+    final total = chapas * precoChapaBranca +
         custoRolos +
-        (cortes * precoCorte) +
+        cortes * precoCorte +
         custoAplicacao +
         ferragens;
 
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text("AJUSTE DE PREÇOS",
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-          _editRow("Chapa Branca", precoChapaBranca,
-              (v) => setState(() => precoChapaBranca = v)),
-          _editRow("Chapa Color", precoChapaColorida,
-              (v) => setState(() => precoChapaColorida = v)),
-          _editRow("Rolo Fita (20m)", precoRoloFita,
-              (v) => setState(() => precoRoloFita = v)),
-          _editRow("Aplicação (m)", precoAplicacaoFita,
-              (v) => setState(() => precoAplicacaoFita = v)),
-          _editRow(
-              "Corte (un)", precoCorte, (v) => setState(() => precoCorte = v)),
-          _editRow(
-              "Fator Corte", fatorCorte, (v) => setState(() => fatorCorte = v)),
-          const Divider(height: 30),
-          const Text("CÁLCULO DE MATERIAIS",
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-          _resRow("Área Branco total", "${aB.toStringAsFixed(2)} m²"),
-          _resRow("Chapas Brancas (4.5m²)", "x$chB"),
-          _resRow("Área Color total", "${aC.toStringAsFixed(2)} m²"),
-          _resRow("Chapas Color (4.5m²)", "x$chC"),
-          const Divider(height: 20),
-          _resRow("Metragem linear fita", "${fitaM.toStringAsFixed(1)} m"),
-          _resRow("Rolos necessários", "x$rolos"),
-          _resRow("Custo dos Rolos", "R\$ ${custoRolos.toStringAsFixed(2)}"),
-          _resRow(
-              "Custo Aplicação", "R\$ ${custoAplicacao.toStringAsFixed(2)}"),
-          const Divider(height: 20),
-          _resRow("Serviço Cortes ($cortes)",
-              "R\$ ${(cortes * precoCorte).toStringAsFixed(2)}"),
-          _resRow("Ferragens", "R\$ ${ferragens.toStringAsFixed(2)}"),
-          const Divider(height: 30, thickness: 2),
-          _resRow("TOTAL DO ORÇAMENTO", "R\$ ${total.toStringAsFixed(2)}",
-              destaque: true),
-          const SizedBox(height: 20),
-          if (orcamentoTotal.isNotEmpty)
-            Row(children: [
-              TextButton(
-                  onPressed: () => setState(() => orcamentoTotal.removeLast()),
-                  child: const Text("Remover Último",
-                      style: TextStyle(color: Colors.orange, fontSize: 11))),
-              TextButton(
-                  onPressed: () => setState(() => orcamentoTotal.clear()),
-                  child: const Text("Limpar Tudo",
-                      style: TextStyle(color: Colors.red, fontSize: 11))),
-            ])
-        ],
+    return Card(
+      margin: EdgeInsets.zero,
+      color: Theme.of(context).colorScheme.surfaceContainerLow,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('Orçamento do móvel',
+                style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 16),
+            _resRow('TOTAL DO ORÇAMENTO', _moeda(total), destaque: true),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: _exportarExcel,
+              icon: const Icon(Icons.download),
+              label: const Text('Baixar planilha Excel (.xlsx)'),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: _copiarParaCortecloud,
+              icon: const Icon(Icons.content_copy),
+              label: const Text('Copiar para o Cortecloud'),
+            ),
+            const Divider(height: 32),
+            const Text('AJUSTE DE PREÇOS',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            _editRow('Chapa branca', precoChapaBranca,
+                (v) => setState(() => precoChapaBranca = v)),
+            _editRow('Rolo de fita (20 m)', precoRoloFita,
+                (v) => setState(() => precoRoloFita = v)),
+            _editRow('Aplicação de fita (m)', precoAplicacaoFita,
+                (v) => setState(() => precoAplicacaoFita = v)),
+            _editRow('Corte (un)', precoCorte,
+                (v) => setState(() => precoCorte = v)),
+            _editRow('Fator de corte', fatorCorte,
+                (v) => setState(() => fatorCorte = v)),
+            const Divider(height: 32),
+            const Text('CÁLCULO DE MATERIAIS',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            _resRow('Quantidade de peças', '$pTotal'),
+            _resRow('Área de MDF branco', '${area.toStringAsFixed(2)} m²'),
+            _resRow('Chapas brancas (4,5 m²)', '$chapas'),
+            const Text(
+                'Estimativa por área, sem plano de corte. Fundo de 3 mm não incluído no custo das chapas.',
+                style: TextStyle(fontSize: 14)),
+            const Divider(height: 24),
+            _resRow('Metragem de fita', '${fitaM.toStringAsFixed(1)} m'),
+            _resRow('Rolos necessários', '$rolos'),
+            _resRow('Custo dos rolos', _moeda(custoRolos)),
+            _resRow('Aplicação de fita', _moeda(custoAplicacao)),
+            _resRow('Serviço de cortes ($cortes)', _moeda(cortes * precoCorte)),
+            _resRow('Ferragens', _moeda(ferragens)),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _editRow(String lab, double val, Function(double) onU) {
+  String _moeda(double valor) =>
+      'R\$ ${valor.toStringAsFixed(2).replaceAll('.', ',')}';
+
+  Widget _editRow(String label, double valor, ValueChanged<double> atualizar) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(children: [
-        Expanded(child: Text(lab, style: const TextStyle(fontSize: 10))),
-        SizedBox(
-            width: 60,
-            height: 25,
-            child: TextFormField(
-              initialValue: val.toString(),
-              keyboardType: TextInputType.number,
-              style: const TextStyle(fontSize: 11),
-              decoration: const InputDecoration(border: OutlineInputBorder()),
-              onFieldSubmitted: (v) => onU(double.tryParse(v) ?? 0),
-            )),
-      ]),
+      padding: const EdgeInsets.only(bottom: 12),
+      child: TextFormField(
+        key: ValueKey('preco-$label'),
+        initialValue: valor.toString().replaceAll('.', ','),
+        decoration: InputDecoration(labelText: label),
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        autovalidateMode: AutovalidateMode.onUserInteraction,
+        validator: (v) {
+          final numero = _numero(v ?? '');
+          return numero == null || !numero.isFinite || numero < 0
+              ? 'Informe um valor válido (zero ou maior).'
+              : null;
+        },
+        onChanged: (v) {
+          final numero = _numero(v);
+          if (numero != null && numero.isFinite && numero >= 0)
+            atualizar(numero);
+        },
+      ),
     );
   }
 
-  Widget _resRow(String lab, String val, {bool destaque = false}) {
-    return Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-      Text(lab,
-          style: TextStyle(
-              fontWeight: destaque ? FontWeight.bold : FontWeight.normal,
-              fontSize: destaque ? 14 : 11)),
-      Text(val,
-          style: TextStyle(
-              fontWeight: destaque ? FontWeight.bold : FontWeight.normal,
-              fontSize: destaque ? 14 : 11,
-              color: destaque ? Colors.green[800] : Colors.black)),
-    ]);
+  Widget _resRow(String label, String valor, {bool destaque = false}) {
+    final estilo = TextStyle(
+      fontWeight: destaque ? FontWeight.bold : FontWeight.normal,
+      fontSize: destaque ? 18 : 16,
+    );
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        spacing: 12,
+        runSpacing: 4,
+        children: [Text(label, style: estilo), Text(valor, style: estilo)],
+      ),
+    );
   }
 }
